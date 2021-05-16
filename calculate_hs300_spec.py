@@ -5,37 +5,46 @@ import numpy as np
 import baostock as bs
 import common
 
+
 def calculate_hs300_spec():
     lg = bs.login()
-    print('login respond error_code:'+lg.error_code)
-    print('login respond  error_msg:'+lg.error_msg)
+    print('login respond error_code:' + lg.error_code)
+    print('login respond  error_msg:' + lg.error_msg)
 
     rs = bs.query_hs300_stocks()
-    print('query_hs300 error_code:'+rs.error_code)
-    print('query_hs300  error_msg:'+rs.error_msg)
+    print('query_hs300 error_code:' + rs.error_code)
+    print('query_hs300  error_msg:' + rs.error_msg)
 
+    # 获取沪深300股票列表
     hs300_stocks = []
     while (rs.error_code == '0') & rs.next():
         hs300_stocks.append(rs.get_row_data())
     bs.logout()
 
+    # 从数据库中读取沪深300日K数据
     db = create_engine(common.db_path_sqlalchemy)
     hs300code = 'sh.000300'
     sql_cmd = "SELECT * FROM stock_day_k where code='" + hs300code + "' order by date desc limit 0,251"
     datash = pd.read_sql(sql=sql_cmd, con=db)
-    price = DataFrame({'date': datash['date'], hs300code:datash['close']})
+    # 提取date 和 收盘价 两列
+    price = DataFrame({'date': datash['date'], hs300code: datash['close']})
 
     result = []
     currentdate = datash['date'][0]
+
+    # 遍历 HS300股票列表，提取日K数据与HS300日K数据组合
     for stockinfo in hs300_stocks:
         stockcode = stockinfo[1]
         code_name = stockinfo[2]
-        sql_cmd = "SELECT * FROM stock_day_k where code='" + stockcode+"' order by date desc limit 0,251"
+        sql_cmd = "SELECT * FROM stock_day_k where code='" + stockcode + "' order by date desc limit 0,251"
         daily = pd.read_sql(sql=sql_cmd, con=db)
-        pp = DataFrame({stockcode:daily['close']})
+        pp = DataFrame({stockcode: daily['close']})
+        # 拼接
         price2 = pd.concat([price, pp], axis=1)
+        # 把date列去掉，因为计算的时候不需要这一列了
         price2 = price2.drop(['date'], axis=1)
-        price2 = price2.reset_index(drop = True)
+        # 去除索引
+        price2 = price2.reset_index(drop=True)
 
         tickerresult = []
         tickerresult.append(currentdate)
@@ -55,26 +64,23 @@ def calculate_hs300_spec():
         tickerresult.append(trendgap_5)
         result.append(tickerresult)
         print(code_name)
-    
-    if len(result) != 0:  
+
+    if len(result) != 0:
         db.execute(r'''
         INSERT OR REPLACE INTO stock_hs300_spec VALUES (?,?,?,?,?,?,?,?,?)
         ''', result)
-    
-        
+
 
 def calculate_trendgap(price, length, dayNumber=0):
-    if dayNumber >length:
+    if dayNumber > length:
         return np.nan
     if dayNumber == 0:
         dayNumber = length
-    relaprice1 = price.iloc[0][0]/price.iloc[dayNumber-1][0]
-    relaprice2 = price.iloc[0][1]/price.iloc[dayNumber-1][1]
-    
+    relaprice1 = price.iloc[0][0] / price.iloc[dayNumber - 1][0]
+    relaprice2 = price.iloc[0][1] / price.iloc[dayNumber - 1][1]
+
     return relaprice2 - relaprice1
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     calculate_hs300_spec()
-
-

@@ -1,5 +1,5 @@
-db_path_sqlite3 = r'D:\codes\python\stock\mystock.db'
-db_path_sqlalchemy = r'sqlite:///D:\codes\python\stock\mystock.db'
+db_path_sqlite3 = r'mystock.db'
+db_path_sqlalchemy = r'sqlite:///mystock.db'
 
 def getAdjust(adjust, date):
     for i in range(adjust.shape[0]):
